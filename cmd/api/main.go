@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"secondbrain/src/gateway/llm"
-	repository "secondbrain/src/repository/vector_repository"
+	vectorrepo "secondbrain/src/repository/vectors"
 	"secondbrain/src/server"
 	"time"
 
@@ -25,6 +25,7 @@ func main() {
 	if vectorRepo == nil {
 		return
 	}
+	defer vectorRepo.Close()
 
 	llmGateway := createLLMGateway(httpClient)
 	if llmGateway == nil {
@@ -40,19 +41,13 @@ func main() {
 	http.ListenAndServe(":8080", server.Routes())
 }
 
-func createVectorRepo(ctx context.Context) *repository.ChromaStore {
+func createVectorRepo(ctx context.Context) *vectorrepo.ChromaStore {
 	fmt.Println("Creating Chroma HTTP client...")
 	chromaClient, err := chroma.NewHTTPClient()
 	if err != nil {
 		fmt.Printf("failed to create Chroma client: %s", err)
 		return nil
 	}
-	defer func() {
-		err = chromaClient.Close()
-		if err != nil {
-			fmt.Println("failed to close Chroma client")
-		}
-	}()
 
 	fmt.Println("Creating Chroma collection...")
 	chromaCollection, err := chromaClient.GetOrCreateCollection(ctx, "secondbrain_chroma_db")
@@ -62,7 +57,7 @@ func createVectorRepo(ctx context.Context) *repository.ChromaStore {
 	}
 
 	fmt.Println("Creating Chroma store...")
-	return repository.NewChromaStore(chromaCollection)
+	return vectorrepo.NewChromaStore(chromaClient, chromaCollection)
 }
 
 func createLLMGateway(client *http.Client) *llm.OllamaClient {

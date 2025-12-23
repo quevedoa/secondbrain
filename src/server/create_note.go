@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"secondbrain/src/entity"
 )
@@ -19,6 +20,7 @@ func (s *Server) CreateNote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	fmt.Printf("Created note %s with content %s", createdNote.ID, createdNote.Content)
 
 	res, err := json.Marshal(createdNote)
 	if err != nil {

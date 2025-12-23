@@ -10,11 +10,13 @@ import (
 )
 
 type ChromaStore struct {
+	Client     chroma.Client
 	Collection chroma.Collection
 }
 
-func NewChromaStore(collection chroma.Collection) *ChromaStore {
+func NewChromaStore(client chroma.Client, collection chroma.Collection) *ChromaStore {
 	return &ChromaStore{
+		Client:     client,
 		Collection: collection,
 	}
 }
@@ -60,4 +62,11 @@ func (c *ChromaStore) Query(ctx context.Context, query string, numResults int32)
 	}
 
 	return notes, nil
+}
+
+func (c *ChromaStore) Close() error {
+	if c.Client == nil {
+		return nil
+	}
+	return c.Client.Close()
 }

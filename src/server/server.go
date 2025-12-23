@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 	"secondbrain/src/gateway/llm"
-	repo "secondbrain/src/repository/vector_repository"
+	repo "secondbrain/src/repository/vectors"
 )
 
 type Server struct {

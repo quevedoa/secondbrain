@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	endpoint = "https://localhost:11434/api/generate"
+	endpoint = "http://localhost:11434/api/generate"
 )
 
 type OllamaClient struct {
@@ -26,7 +26,7 @@ func NewOllamaClient(client *http.Client) *OllamaClient {
 }
 
 func (o *OllamaClient) Ask(ctx context.Context, req *entity.LLMRequest) (*entity.LLMResponse, error) {
-	httpReq, err := json.Marshal(mapper.ToOllamaRequest(req))
+	httpReq, err := json.Marshal(mapper.ToOllamaRequest(req)[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal http request to Ollama: %s", err)
 	}
@@ -42,11 +42,11 @@ func (o *OllamaClient) Ask(ctx context.Context, req *entity.LLMRequest) (*entity
 		return nil, fmt.Errorf("failed to read HTTP Response body from Ollama: %s", err)
 	}
 
-	var ollamaRes *entity.OllamaResponse
-	err = json.Unmarshal(bodyBytes, ollamaRes)
+	var ollamaRes entity.OllamaResponse
+	err = json.Unmarshal(bodyBytes, &ollamaRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal Ollama response: %s", err)
 	}
 
-	return mapper.ToLLMResponse([]*entity.OllamaResponse{ollamaRes}), nil
+	return mapper.ToLLMResponse([]*entity.OllamaResponse{&ollamaRes}), nil
 }
