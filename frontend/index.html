@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Notes UI (Vanilla JS)</title>
+    <style>
+        body {
+            font-family: system-ui, Arial, sans-serif;
+            margin: 24px;
+            max-width: 900px;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .row {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        textarea,
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        button {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            background: #fafafa;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #f2f2f2;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #555;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #0b1020;
+            color: #e8e8e8;
+            padding: 12px;
+            border-radius: 12px;
+            min-height: 140px;
+        }
+
+        .small {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .pill {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+
+        @media (max-width: 800px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Notes API Frontend</h1>
+    <p class="small">
+        Base URL:
+        <input id="baseUrl" value="http://localhost:8080" />
+    </p>
+
+    <div class="row">
+        <!-- Create Note -->
+        <div class="card">
+            <h2>CreateNote</h2>
+            <label for="noteContent">Content</label>
+            <textarea id="noteContent" placeholder="Write a note to store in your vector DB..."></textarea>
+
+            <label for="noteId">ID (optional)</label>
+            <input id="noteId" placeholder='"" for server-generated, or set one' />
+
+            <div class="actions">
+                <button id="createBtn">Create Note</button>
+                <span id="createStatus" class="status"></span>
+            </div>
+
+            <pre id="createResult" aria-label="Create result"></pre>
+        </div>
+
+        <!-- Query Notes (Streaming) -->
+        <div class="card">
+            <h2>QueryNotes (Streaming)</h2>
+            <label for="queryText">Query</label>
+            <textarea id="queryText" placeholder="Ask something about your notes..."></textarea>
+
+            <label for="numResults">numResults</label>
+            <input id="numResults" type="number" value="5" min="1" max="50" />
+
+            <div class="actions">
+                <button id="queryBtn">Start Query</button>
+                <button id="stopBtn" disabled>Stop</button>
+                <span id="queryStatus" class="status"></span>
+                <span id="modePill" class="pill">stream: fetch</span>
+            </div>
+
+            <div id="streamOut" aria-label="Stream output"></div>
+            <div class="small">Parses <code>event:</code> / <code>data:</code> SSE-style frames from the response body.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        function getBaseUrl() {
+            return $("baseUrl").value.replace(/\/+$/, "");
+        }
+
+        function safeJsonParse(text) {
+            try { return JSON.parse(text); } catch { return null; }
+        }
+
+        // ----------------------------
+        // CreateNote
+        // ----------------------------
+        $("createBtn").addEventListener("click", async () => {
+            $("createStatus").textContent = "";
+            $("createResult").textContent = "";
+
+            const baseUrl = getBaseUrl();
+            const content = $("noteContent").value.trim();
+            const id = $("noteId").value.trim();
+
+            if (!content) {
+                $("createStatus").textContent = "Please enter note content.";
+                return;
+            }
+
+            $("createBtn").disabled = true;
+            $("createStatus").textContent = "Creating note...";
+
+            try {
+                const res = await fetch(`${baseUrl}/CreateNote`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content, id: id ?? "" })
+                });
+
+                const text = await res.text();
+                const maybeJson = safeJsonParse(text);
+
+                if (!res.ok) {
+                    $("createStatus").textContent = `Error (${res.status})`;
+                    $("createResult").textContent = maybeJson ? JSON.stringify(maybeJson, null, 2) : text;
+                    return;
+                }
+
+                $("createStatus").textContent = "Created ✓";
+                $("createResult").textContent = maybeJson ? JSON.stringify(maybeJson, null, 2) : text;
+            } catch (err) {
+                $("createStatus").textContent = "Network error";
+                $("createResult").textContent = String(err);
+            } finally {
+                $("createBtn").disabled = false;
+            }
+        });
+
+        // ----------------------------
+        // QueryNotes (Streaming SSE-like)
+        // ----------------------------
+        let currentAbort = null;
+
+        function appendStream(text) {
+            $("streamOut").textContent += text;
+            // keep the view pinned to bottom
+            $("streamOut").scrollTop = $("streamOut").scrollHeight;
+        }
+
+        function setQueryUiStreaming(isStreaming) {
+            $("queryBtn").disabled = isStreaming;
+            $("stopBtn").disabled = !isStreaming;
+        }
+
+        // Minimal SSE frame parser:
+        // expects blocks separated by \n\n with lines like:
+        // event: response
+        // data: Hello
+        // data: world
+        function parseSseChunk(buffer, onEvent) {
+            // Normalize CRLF just in case
+            buffer = buffer.replace(/\r\n/g, "\n");
+
+            let idx;
+            while ((idx = buffer.indexOf("\n\n")) !== -1) {
+                const rawBlock = buffer.slice(0, idx);
+                buffer = buffer.slice(idx + 2);
+
+                const lines = rawBlock.split("\n").filter(Boolean);
+
+                let eventName = "message";
+                const dataLines = [];
+
+                for (const line of lines) {
+                    if (line.startsWith("event:")) {
+                        eventName = line.slice("event:".length).trim();
+                    } else if (line.startsWith("data:")) {
+                        dataLines.push(line.slice("data:".length).trimStart());
+                    }
+                }
+
+                const data = dataLines.join("\n");
+                if (data.length || eventName) onEvent({ event: eventName, data });
+            }
+
+            return buffer; // leftover partial block
+        }
+
+        async function streamQueryNotes({ baseUrl, text, numResults }) {
+            const controller = new AbortController();
+            currentAbort = controller;
+
+            $("streamOut").textContent = "";
+            $("queryStatus").textContent = "Connecting...";
+            setQueryUiStreaming(true);
+
+            try {
+                // IMPORTANT: This matches your curl: GET with a JSON body.
+                // Some servers/proxies dislike GET bodies; if you can, consider POST.
+                const res = await fetch(`${baseUrl}/QueryNotes`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text, numResults }),
+                    signal: controller.signal
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => "");
+                    $("queryStatus").textContent = `Error (${res.status})`;
+                    appendStream(errText || `Request failed with status ${res.status}\n`);
+                    return;
+                }
+
+                $("queryStatus").textContent = "Streaming...";
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+
+                let buffer = "";
+
+                const onEvent = ({ event, data }) => {
+                    if (event === "response") {
+                        appendStream(data + " ");
+                        if (/[.!?]$/.test(data)) {
+                            appendStream("\n");
+                        }
+                    } else if (event === "error") {
+                        appendStream(`\n\n[error] ${data}\n`);
+                        $("queryStatus").textContent = "Server error";
+                    } else if (event === "done") {
+                        appendStream("\n");
+                        $("queryStatus").textContent = "Done ✓";
+                    } else {
+                        // unknown event
+                        appendStream(`\n\n[${event}] ${data}\n`);
+                    }
+                };
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    buffer = parseSseChunk(buffer, onEvent);
+                }
+
+                // Flush any trailing text (in case the server didn't end with \n\n)
+                if (buffer.trim().length) {
+                    // Try to parse one last time by forcing a delimiter
+                    buffer = parseSseChunk(buffer + "\n\n", onEvent);
+                }
+
+                // If server didn't send done, still mark complete
+                if ($("queryStatus").textContent === "Streaming...") {
+                    $("queryStatus").textContent = "Completed ✓";
+                    appendStream("\n");
+                }
+            } catch (err) {
+                if (controller.signal.aborted) {
+                    $("queryStatus").textContent = "Stopped";
+                    appendStream("\n\n[stopped]\n");
+                } else {
+                    $("queryStatus").textContent = "Network error";
+                    appendStream(`\n\n[network error] ${String(err)}\n`);
+                }
+            } finally {
+                setQueryUiStreaming(false);
+                currentAbort = null;
+            }
+        }
+
+        $("queryBtn").addEventListener("click", () => {
+            const baseUrl = getBaseUrl();
+            const text = $("queryText").value.trim();
+            const numResults = Number($("numResults").value || 5);
+
+            if (!text) {
+                $("queryStatus").textContent = "Please enter a query.";
+                return;
+            }
+
+            streamQueryNotes({ baseUrl, text, numResults });
+        });
+
+        $("stopBtn").addEventListener("click", () => {
+            if (currentAbort) currentAbort.abort();
+        });
+    </script>
+</body>
+
+</html>

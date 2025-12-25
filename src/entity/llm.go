@@ -1,13 +1,16 @@
 package entity
 
 type LLMRequest struct {
-	Model   string   `json:"model"`
-	Prompts []Prompt `json:"prompts"`
-	Stream  bool     `json:"stream"`
+	Model  string `json:"model"`
+	Prompt Prompt `json:"prompts"`
+	Stream bool   `json:"stream"`
 }
 
 type LLMResponse struct {
-	Responses []string `json:"responses"`
+	Response   string `json:"responses"`
+	Done       bool   `json:"done"`
+	DoneReason string `json:"done_reason"`
+	Error      error  `json:"error"`
 }
 
 type Prompt struct {
