@@ -246,7 +246,6 @@ chatForm.addEventListener("submit", async (e) => {
 
     setStreamingUI(true);
     setStatus("Thinking…");
-    setChatHint("Streaming… (press Stop to abort)");
 
     try {
         const res = await fetch("/api/QueryNotes", {
@@ -263,7 +262,7 @@ chatForm.addEventListener("submit", async (e) => {
             {
                 onResponse: (chunk) => {
                     // Append partial tokens/chunks
-                    built += chunk;
+                    built += chunk + " ";
                     assistantBubble.textContent = built;
                     scrollChatToBottom();
                 },
@@ -303,4 +302,3 @@ chatForm.addEventListener("submit", async (e) => {
 
 // Initial state
 setStatus("Idle");
-setChatHint("Ask a question to query your notes.");
