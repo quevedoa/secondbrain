@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Notes UI (Vanilla JS)</title>
+    <title>secondbrain</title>
     <style>
         body {
             font-family: system-ui, Arial, sans-serif;
@@ -110,17 +110,17 @@
 </head>
 
 <body>
-    <h1>Notes API Frontend</h1>
+    <h1>secondbrain</h1>
 
     <div class="row">
         <!-- Create Note -->
         <div class="card">
-            <h2>CreateNote</h2>
+            <h2>Create note</h2>
             <label for="noteContent">Content</label>
-            <textarea id="noteContent" placeholder="Write a note to store in your vector DB..."></textarea>
+            <textarea id="noteContent" placeholder="Write any note or thought..."></textarea>
 
-            <label for="noteId">ID (optional)</label>
-            <input id="noteId" placeholder='"" for server-generated, or set one' />
+            <label for="noteId">Note Title</label>
+            <input id="noteId" placeholder='(optional) leave blank for random title' />
 
             <div class="actions">
                 <button id="createBtn">Create Note</button>
@@ -132,24 +132,22 @@
 
         <!-- Query Notes (Streaming) -->
         <div class="card">
-            <h2>QueryNotes (Streaming)</h2>
-            <label for="queryText">Query</label>
+            <h2>Ask your notes</h2>
+            <label for="queryText">Ask</label>
             <textarea id="queryText" placeholder="Ask something about your notes..."></textarea>
 
-            <label for="numResults">numResults</label>
+            <label for="numResults">Context Amount</label>
             <input id="numResults" type="number" value="5" min="1" max="50" />
 
             <div class="actions">
-                <button id="queryBtn">Start Query</button>
+                <button id="queryBtn">Ask</button>
                 <button id="stopBtn" disabled>Stop</button>
                 <span id="queryStatus" class="status"></span>
-                <span id="modePill" class="pill">stream: fetch</span>
             </div>
 
-            <div id="streamOut" aria-label="Stream output"></div>
-            <div class="small">Parses <code>event:</code> / <code>data:</code> SSE-style frames from the response body.
-            </div>
+            <pre id="streamOut" aria-label="Stream output"></pre>
         </div>
+    </div>
     </div>
 
     <script>
