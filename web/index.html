@@ -111,10 +111,6 @@
 
 <body>
     <h1>Notes API Frontend</h1>
-    <p class="small">
-        Base URL:
-        <input id="baseUrl" value="http://localhost:8080" />
-    </p>
 
     <div class="row">
         <!-- Create Note -->
@@ -159,10 +155,6 @@
     <script>
         const $ = (id) => document.getElementById(id);
 
-        function getBaseUrl() {
-            return $("baseUrl").value.replace(/\/+$/, "");
-        }
-
         function safeJsonParse(text) {
             try { return JSON.parse(text); } catch { return null; }
         }
@@ -174,7 +166,6 @@
             $("createStatus").textContent = "";
             $("createResult").textContent = "";
 
-            const baseUrl = getBaseUrl();
             const content = $("noteContent").value.trim();
             const id = $("noteId").value.trim();
 
@@ -187,7 +178,7 @@
             $("createStatus").textContent = "Creating note...";
 
             try {
-                const res = await fetch(`${baseUrl}/CreateNote`, {
+                const res = await fetch("/api/CreateNote", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ content, id: id ?? "" })
@@ -262,7 +253,7 @@
             return buffer; // leftover partial block
         }
 
-        async function streamQueryNotes({ baseUrl, text, numResults }) {
+        async function streamQueryNotes({ text, numResults }) {
             const controller = new AbortController();
             currentAbort = controller;
 
@@ -273,7 +264,7 @@
             try {
                 // IMPORTANT: This matches your curl: GET with a JSON body.
                 // Some servers/proxies dislike GET bodies; if you can, consider POST.
-                const res = await fetch(`${baseUrl}/QueryNotes`, {
+                const res = await fetch("/api/QueryNotes", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text, numResults }),
@@ -345,7 +336,6 @@
         }
 
         $("queryBtn").addEventListener("click", () => {
-            const baseUrl = getBaseUrl();
             const text = $("queryText").value.trim();
             const numResults = Number($("numResults").value || 5);
 
@@ -354,7 +344,7 @@
                 return;
             }
 
-            streamQueryNotes({ baseUrl, text, numResults });
+            streamQueryNotes({ text, numResults });
         });
 
         $("stopBtn").addEventListener("click", () => {

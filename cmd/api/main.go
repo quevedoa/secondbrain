@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"secondbrain/src/gateway/llm"
-	"secondbrain/src/middleware"
 	vectorrepo "secondbrain/src/repository/vectors"
 	"secondbrain/src/server"
 	"time"
@@ -39,7 +38,7 @@ func main() {
 	)
 
 	fmt.Println("Listening on port 8080...")
-	http.ListenAndServe(":8080", middleware.WithCORS(server.Routes()))
+	http.ListenAndServe(":8080", server.Routes())
 }
 
 func createVectorRepo(ctx context.Context) *vectorrepo.ChromaStore {

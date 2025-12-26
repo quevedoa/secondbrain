@@ -20,7 +20,11 @@ func New(vectorRepo repo.VectorRepository, llmGateway llm.LLMGateway) *Server {
 
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/CreateNote", s.CreateNote)
-	mux.HandleFunc("/QueryNotes", s.QueryNotes)
+	mux.HandleFunc("/api/CreateNote", s.CreateNote)
+	mux.HandleFunc("/api/QueryNotes", s.QueryNotes)
+
+	fs := http.FileServer(http.Dir("./web"))
+	mux.Handle("/", fs)
+
 	return mux
 }
